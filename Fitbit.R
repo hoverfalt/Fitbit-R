@@ -38,7 +38,7 @@ token <- fitbitr::oauth_token()
 
 
 # Set test date
-date <- "2020-04-25"
+date <- "2020-09-30"
 
 # Get daily activity summary
 activity_summary <- get_activity_summary(token, date)
@@ -64,13 +64,19 @@ steps <- steps %>%
   arrange(date)
 
 # Save steps data.frame to file for easier retrieval
-save(steps,file="Data/steps-2020-04-26.Rda")
+save(steps,file="Data/steps-2020-09-30.Rda")
 
 # Load data from file
-load("Data/steps-2020-04-26.Rda")
+load("Data/steps-2020-09-30.Rda")
 
 # Plot steps
 ggplot2::ggplot(steps, aes(x=date, y=steps)) + geom_col()
+
+# Histogram of steps
+steps %>%
+  filter(date >= "2016-01-01" & date <= "2020-12-31") %>%
+  ggplot(aes(steps)) +
+  geom_histogram(binwidth = 1000)
 
 
 
@@ -106,7 +112,7 @@ str(get_lifetime_stats(token))
 
 
 # Set test date
-date <- "2020-04-19"
+date <- "2020-09-30"
 
 # Get heart rate time series
 heart_rate <- get_heart_rate_time_series(token, date=date, period="7d")
@@ -155,15 +161,44 @@ get_sleep_time_series(token, "efficiency", date, period="7d")
 ################ WEIGHT ################
 ########################################
 
-# Fitbit API: xxx
-
-
 get_body_fat_logs(token, date)
-
 get_weight_logs(token, date)
 
-get_body_time_series(token, "weight", date = date, period="7d")
+get_body_time_series(token, "weight", date = date, period="1y")
 
+weight_2020 <- get_body_time_series(token, "weight", date=date, period="1y")
+weight_2019 <- get_body_time_series(token, "weight", date="2019-12-31", period="1y")
+weight_2018 <- get_body_time_series(token, "weight", date="2018-12-31", period="1y")
+weight <- rbind(weight_2020, rbind(weight_2018, weight_2019))
+weight <- weight[!duplicated(weight$dateTime),]
+
+# Remove temporary variables
+rm(weight_2020)
+rm(weight_2019)
+rm(weight_2018)
+
+# Convert variables to correct type and arrange by date
+weight <- weight %>%
+  mutate(date = as.POSIXct(strptime(weight$dateTime, "%Y-%m-%d"))) %>%
+  mutate(weight = as.numeric(value)) %>%
+  select(-dateTime, -value) %>%
+  arrange(date)
+
+# Save weight data.frame to file for easier retrieval
+save(weight,file="Data/weight-2020-09-30.Rda")
+
+# Load data from file
+load("Data/weight-2020-09-30.Rda")
+
+# Plot weight
+ggplot2::ggplot(weight, aes(x=date, y=weight)) + geom_line()
+
+
+# Histogram of weight
+weight %>%
+  filter(date >= "2016-01-01" & date <= "2020-12-31") %>%
+  ggplot(aes(weight)) +
+  geom_histogram(binwidth = 1)
 
 
 
