@@ -15,6 +15,7 @@ rm(list = ls())
 library("fitbitr")
 library("ggplot2")
 library("dplyr")
+library("tidyr")
 
 # Source required files
 source("Fitbit-API-Key.R")
@@ -38,7 +39,7 @@ token <- fitbitr::oauth_token()
 
 
 # Set test date
-date <- "2020-09-30"
+date <- "2020-12-03"
 
 # Get daily activity summary
 activity_summary <- get_activity_summary(token, date)
@@ -64,10 +65,10 @@ steps <- steps %>%
   arrange(date)
 
 # Save steps data.frame to file for easier retrieval
-save(steps,file="Data/steps-2020-09-30.Rda")
+save(steps,file="Data/steps-2020-12-03.Rda")
 
 # Load data from file
-load("Data/steps-2020-09-30.Rda")
+load("Data/steps-2020-12-03.Rda")
 
 # Plot steps
 ggplot2::ggplot(steps, aes(x=date, y=steps)) + geom_col()
@@ -133,7 +134,73 @@ heart_rate <- heart_rate %>%
   select(-date, -time, -value)
 
 # Plot heart rate
-ggplot2::ggplot(heart_rate, aes(x=dateTime, y=heart_rate)) + geom_col()
+ggplot2::ggplot(heart_rate, aes(x=dateTime, y=heart_rate)) + geom_line()
+
+
+
+
+
+# Get daily resting heart rate data for entire data period and remove duplicates
+heart_rate_2020 <- get_heart_rate_time_series(token, date=date, period="1y")
+heart_rate_2019 <- get_heart_rate_time_series(token, date="2019-12-31", period="1y")
+heart_rate_2018 <- get_heart_rate_time_series(token, date="2018-12-31", period="1y")
+heart_rate_2017 <- get_heart_rate_time_series(token, date="2017-12-31", period="1y")
+heart_rate_2016 <- get_heart_rate_time_series(token, date="2016-12-31", period="1y")
+heart_rate_2015 <- get_heart_rate_time_series(token, date="2015-12-31", period="1y")
+
+# Remove 2019 dates from 2020
+heart_rate_2020 <- heart_rate_2020 %>% filter(dateTime >= as.Date("2020-01-01"))
+
+resting_HR_2020 <- heart_rate_2020 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2020$value$restingHeartRate)
+resting_HR_2019 <- heart_rate_2019 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2019$value$restingHeartRate)
+resting_HR_2018 <- heart_rate_2018 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2018$value$restingHeartRate)
+resting_HR_2017 <- heart_rate_2017 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2017$value$restingHeartRate)
+resting_HR_2016 <- heart_rate_2016 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2016$value$restingHeartRate)
+resting_HR_2015 <- heart_rate_2015 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2015$value$restingHeartRate)
+
+resting_HR <- rbind(resting_HR_2020, resting_HR_2019, resting_HR_2018, resting_HR_2017, resting_HR_2016, resting_HR_2015)
+
+
+# Remove temporary variables
+rm(resting_HR_2020)
+rm(resting_HR_2019)
+rm(resting_HR_2018)
+rm(resting_HR_2017)
+rm(resting_HR_2016)
+rm(resting_HR_2015)
+
+# Plot steps
+ggplot(resting_HR, aes(x=dateTime, y=restingHeartRate)) + geom_col()
+
+
+
+
+# Convert variables to correct type and arrange by date
+steps <- steps %>%
+  mutate(date = as.POSIXct(strptime(steps$dateTime, "%Y-%m-%d"))) %>%
+  mutate(steps = as.numeric(value)) %>%
+  select(-dateTime, -value) %>%
+  arrange(date)
+
+# Save steps data.frame to file for easier retrieval
+save(steps,file="Data/steps-2020-12-03.Rda")
+
+# Load data from file
+load("Data/steps-2020-12-03.Rda")
+
+# Plot steps
+ggplot2::ggplot(steps, aes(x=date, y=steps)) + geom_col()
+
+# Histogram of steps
+steps %>%
+  filter(date >= "2016-01-01" & date <= "2020-12-31") %>%
+  ggplot(aes(steps)) +
+  geom_histogram(binwidth = 1000)
+
+
+
+
+
 
 
 
