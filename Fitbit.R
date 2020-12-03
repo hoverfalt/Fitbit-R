@@ -16,6 +16,7 @@ library("fitbitr")
 library("ggplot2")
 library("dplyr")
 library("tidyr")
+library("roll")
 
 # Source required files
 source("Fitbit-API-Key.R")
@@ -113,7 +114,7 @@ str(get_lifetime_stats(token))
 
 
 # Set test date
-date <- "2020-09-30"
+date <- "2020-12-03"
 
 # Get heart rate time series
 heart_rate <- get_heart_rate_time_series(token, date=date, period="7d")
@@ -140,6 +141,8 @@ ggplot2::ggplot(heart_rate, aes(x=dateTime, y=heart_rate)) + geom_line()
 
 
 
+## Resting heart rate time plot #######################################################
+
 # Get daily resting heart rate data for entire data period and remove duplicates
 heart_rate_2020 <- get_heart_rate_time_series(token, date=date, period="1y")
 heart_rate_2019 <- get_heart_rate_time_series(token, date="2019-12-31", period="1y")
@@ -160,7 +163,6 @@ resting_HR_2015 <- heart_rate_2015 %>% select(dateTime) %>% mutate(restingHeartR
 
 resting_HR <- rbind(resting_HR_2020, resting_HR_2019, resting_HR_2018, resting_HR_2017, resting_HR_2016, resting_HR_2015)
 
-
 # Remove temporary variables
 rm(resting_HR_2020)
 rm(resting_HR_2019)
@@ -169,35 +171,48 @@ rm(resting_HR_2017)
 rm(resting_HR_2016)
 rm(resting_HR_2015)
 
-# Plot steps
-ggplot(resting_HR, aes(x=dateTime, y=restingHeartRate)) + geom_col()
+resting_HR <- resting_HR %>% mutate(date = as.Date(dateTime)) %>% select(date, restingHeartRate) %>% arrange(desc(date))
 
+# Only include dates on and after 2015-04-23 for which there is HR data
+resting_HR <- resting_HR %>% filter(date > "2015-04-22")
 
-
-
-# Convert variables to correct type and arrange by date
-steps <- steps %>%
-  mutate(date = as.POSIXct(strptime(steps$dateTime, "%Y-%m-%d"))) %>%
-  mutate(steps = as.numeric(value)) %>%
-  select(-dateTime, -value) %>%
-  arrange(date)
-
-# Save steps data.frame to file for easier retrieval
-save(steps,file="Data/steps-2020-12-03.Rda")
+# Save hearrate data frame to file for easier retrieval
+save(resting_HR,file="Data/resting_HR-2020-12-03.Rda")
 
 # Load data from file
-load("Data/steps-2020-12-03.Rda")
+load("Data/resting_HR-2020-12-03.Rda")
+resting_HR %>% arrange(desc(date))
 
-# Plot steps
-ggplot2::ggplot(steps, aes(x=date, y=steps)) + geom_col()
+# Plot with rolling averages 
 
-# Histogram of steps
-steps %>%
-  filter(date >= "2016-01-01" & date <= "2020-12-31") %>%
-  ggplot(aes(steps)) +
-  geom_histogram(binwidth = 1000)
+rolling_average_window1 <- 7
+rolling_average_window2 <- 30
+
+p <- resting_HR %>% filter(!is.na(restingHeartRate)) %>%
+  mutate(averageHeartRate1 = roll_mean(restingHeartRate, rolling_average_window1)) %>%
+  mutate(averageHeartRate1 = lead(averageHeartRate1, round(rolling_average_window1/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  mutate(averageHeartRate2 = roll_mean(restingHeartRate, rolling_average_window2)) %>%
+  mutate(averageHeartRate2 = lead(averageHeartRate2, round(rolling_average_window2/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  ggplot(aes(x=date, y=restingHeartRate)) +
+  geom_line(color='lightgray', size=1) +
+  geom_line(aes(x = date, y = averageHeartRate1), color='steelblue', size=1) +
+  geom_line(aes(x = date, y = averageHeartRate2), color='red', size=1) +
+  scale_y_continuous(limits=c(65,90)) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%Y-%m") +
+  labs(x = "Date", y = "Resting heart rate with 7-day and 30-day rolling average") +
+  theme(axis.text.x = element_text(angle = 90))
+ggsave(filename = "Plots/Resting_HR.png", p, width = 40, height = 6, dpi = 300, units = "in", device=png())
+
+dev.off()
 
 
+
+
+
+# Histogram of resting heartrate
+p <- resting_HR %>%
+  ggplot(aes(restingHeartRate)) +
+  geom_histogram(binwidth = 1)
 
 
 
