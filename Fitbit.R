@@ -40,7 +40,7 @@ token <- fitbitr::oauth_token()
 
 
 # Set test date
-date <- "2020-12-03"
+date <- "2020-12-20"
 
 # Get daily activity summary
 activity_summary <- get_activity_summary(token, date)
@@ -114,7 +114,7 @@ str(get_lifetime_stats(token))
 
 
 # Set test date
-date <- "2020-12-03"
+date <- "2020-12-20"
 
 # Get heart rate time series
 heart_rate <- get_heart_rate_time_series(token, date=date, period="7d")
@@ -136,8 +136,6 @@ heart_rate <- heart_rate %>%
 
 # Plot heart rate
 ggplot2::ggplot(heart_rate, aes(x=dateTime, y=heart_rate)) + geom_line()
-
-
 
 
 
@@ -177,10 +175,10 @@ resting_HR <- resting_HR %>% mutate(date = as.Date(dateTime)) %>% select(date, r
 resting_HR <- resting_HR %>% filter(date > "2015-04-22")
 
 # Save hearrate data frame to file for easier retrieval
-save(resting_HR,file="Data/resting_HR-2020-12-03.Rda")
+save(resting_HR,file="Data/resting_HR-2020-12-10.Rda")
 
 # Load data from file
-load("Data/resting_HR-2020-12-03.Rda")
+load("Data/resting_HR-2020-12-10.Rda")
 resting_HR %>% arrange(desc(date))
 
 # Plot with rolling averages 
@@ -196,16 +194,12 @@ p <- resting_HR %>% filter(!is.na(restingHeartRate)) %>%
   ggplot(aes(x=date, y=restingHeartRate)) +
   geom_line(color='lightgray', size=1) +
   geom_line(aes(x = date, y = averageHeartRate1), color='steelblue', size=1) +
-  geom_line(aes(x = date, y = averageHeartRate2), color='red', size=1) +
+#  geom_line(aes(x = date, y = averageHeartRate2), color='red', size=1) +
   scale_y_continuous(limits=c(65,90)) +
-  scale_x_date(date_breaks = "1 month", date_labels = "%Y-%m") +
+  scale_x_date(limits=c(as.Date("2015-04-22"),NA), date_breaks = "1 month", date_labels = "%Y-%m") +
   labs(x = "Date", y = "Resting heart rate with 7-day and 30-day rolling average") +
   theme(axis.text.x = element_text(angle = 90))
 ggsave(filename = "Plots/Resting_HR.png", p, width = 40, height = 6, dpi = 300, units = "in", device=png())
-
-dev.off()
-
-
 
 
 
@@ -230,12 +224,86 @@ p <- resting_HR %>%
 # Get Sleep Logs(date is character or Date)
 x <- get_sleep_logs(token, date)
 
-#Get the current sleep goal.
-get_sleep_goal(token)
+# Set test date
+date <- "2020-12-20"
 
 #Get Sleep Time Series
-get_sleep_time_series(token, "timeInBed", date, period="7d")
-get_sleep_time_series(token, "efficiency", date, period="7d")
+#get_sleep_time_series(token, "timeInBed", date, period="7d")
+#get_sleep_time_series(token, "efficiency", date, period="1y")
+
+
+# Get daily sleep efficiency data for entire data period and remove duplicates
+sleep_efficiency_2020 <- get_sleep_time_series(token, "efficiency", date, period="1y")
+sleep_efficiency_2019 <- get_sleep_time_series(token, "efficiency", date="2019-12-31", period="1y")
+sleep_efficiency_2018 <- get_sleep_time_series(token, "efficiency", date="2018-12-31", period="1y")
+sleep_efficiency_2017 <- get_sleep_time_series(token, "efficiency", date="2017-12-31", period="1y")
+sleep_efficiency_2016 <- get_sleep_time_series(token, "efficiency", date="2016-12-31", period="1y")
+sleep_efficiency_2015 <- get_sleep_time_series(token, "efficiency", date="2015-12-31", period="1y")
+
+# Remove 2019 dates from 2020
+sleep_efficiency_2020 <- sleep_efficiency_2020 %>% filter(dateTime >= as.Date("2020-01-01"))
+
+sleep_efficiency <- rbind(sleep_efficiency_2020, sleep_efficiency_2019, sleep_efficiency_2018, sleep_efficiency_2017, sleep_efficiency_2016, sleep_efficiency_2015)
+
+# Remove temporary variables
+rm(sleep_efficiency_2020)
+rm(sleep_efficiency_2019)
+rm(sleep_efficiency_2018)
+rm(sleep_efficiency_2017)
+rm(sleep_efficiency_2016)
+rm(sleep_efficiency_2015)
+
+# Format variables
+sleep_efficiency <- sleep_efficiency %>%
+  mutate(date = as.Date(dateTime), efficiency = as.numeric(value)) %>%
+  select(date, efficiency) %>%
+  arrange(desc(date))
+
+# Replace zeros with NAs
+sleep_efficiency$efficiency[sleep_efficiency$efficiency == 0] <- NA
+
+# Only include dates on and after 2015-04-23 to match the resting HR data
+sleep_efficiency <- sleep_efficiency %>% filter(date > "2015-04-22")
+
+# Set efficiency score to NA for dates prior to algorithm change around 2017-06-01
+sleep_efficiency$efficiency[sleep_efficiency$date < "2017-06-01"] <- NA
+
+# Save hearrate data frame to file for easier retrieval
+save(sleep_efficiency,file="Data/sleep_efficiency.Rda")
+# Load data from file
+load("Data/sleep_efficiency.Rda")
+
+
+
+# Plot with rolling averages 
+
+rolling_average_window1 <- 7
+rolling_average_window2 <- 30
+
+p <- sleep_efficiency %>% filter(!is.na(efficiency)) %>%
+  mutate(averageEfficiency1 = roll_mean(efficiency, rolling_average_window1)) %>%
+  mutate(averageEfficiency1 = lead(averageEfficiency1, round(rolling_average_window1/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  mutate(averageEfficiency2 = roll_mean(efficiency, rolling_average_window2)) %>%
+  mutate(averageEfficiency2 = lead(averageEfficiency2, round(rolling_average_window2/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  ggplot(aes(x=date, y=efficiency)) +
+  geom_line(color='lightgray', size=1) +
+  geom_line(aes(x = date, y = averageEfficiency1), color='steelblue', size=1) +
+  #  geom_line(aes(x = date, y = averageHeartRate2), color='red', size=1) +
+  scale_y_continuous(limits=c(75,100)) +
+  scale_x_date(limits=c(as.Date("2015-04-22"),NA), date_breaks = "1 month", date_labels = "%Y-%m") +
+  labs(x = "Date", y = "Sleep efficiency with 7-day and 30-day rolling average") +
+  theme(axis.text.x = element_text(angle = 90))
+ggsave(filename = "Plots/Sleep_Efficiency.png", p, width = 40, height = 6, dpi = 300, units = "in", device=png())
+
+
+# Histogram of sleep efficiency (only include dates after algorithm change around 2017-06-01)
+p <- sleep_efficiency %>% filter(date > "2017-06-01") %>%
+  ggplot(aes(efficiency)) +
+  geom_histogram(binwidth = 1)
+
+dev.off()
+
+
 
 
 
@@ -251,29 +319,62 @@ get_body_time_series(token, "weight", date = date, period="1y")
 weight_2020 <- get_body_time_series(token, "weight", date=date, period="1y")
 weight_2019 <- get_body_time_series(token, "weight", date="2019-12-31", period="1y")
 weight_2018 <- get_body_time_series(token, "weight", date="2018-12-31", period="1y")
-weight <- rbind(weight_2020, rbind(weight_2018, weight_2019))
-weight <- weight[!duplicated(weight$dateTime),]
+weight_2017 <- get_body_time_series(token, "weight", date="2017-12-31", period="1y")
+weight_2016 <- get_body_time_series(token, "weight", date="2016-12-31", period="1y")
+
+# Remove 2019 dates from 2020
+weight_2020 <- weight_2020 %>% filter(dateTime >= as.Date("2020-01-01"))
+#weight <- weight[!duplicated(weight$dateTime),] 
+
+weight <- rbind(weight_2020, weight_2019, weight_2018, weight_2017, weight_2016)
 
 # Remove temporary variables
 rm(weight_2020)
 rm(weight_2019)
 rm(weight_2018)
+rm(weight_2017)
+rm(weight_2016)
 
 # Convert variables to correct type and arrange by date
 weight <- weight %>%
-  mutate(date = as.POSIXct(strptime(weight$dateTime, "%Y-%m-%d"))) %>%
+  mutate(date =  as.Date(dateTime)) %>%
   mutate(weight = as.numeric(value)) %>%
   select(-dateTime, -value) %>%
   arrange(date)
 
+
+# Set weight to NA for dates prior to Aria use start 2017-02-09
+weight$weight[weight$date < "2017-02-09"] <- NA
+
+
 # Save weight data.frame to file for easier retrieval
-save(weight,file="Data/weight-2020-09-30.Rda")
+save(weight,file="Data/weight.Rda")
 
 # Load data from file
-load("Data/weight-2020-09-30.Rda")
+load("Data/weight.Rda")
 
-# Plot weight
-ggplot2::ggplot(weight, aes(x=date, y=weight)) + geom_line()
+
+# Plot with rolling averages 
+
+rolling_average_window1 <- 7
+rolling_average_window2 <- 30
+
+p <- weight %>% filter(!is.na(weight)) %>%
+  mutate(averageWeight1 = roll_mean(weight, rolling_average_window1)) %>%
+  mutate(averageWeight1 = lead(averageWeight1, round(rolling_average_window1/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  mutate(averageWeight2 = roll_mean(weight, rolling_average_window2)) %>%
+  mutate(averageWeight2 = lead(averageWeight2, round(rolling_average_window2/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  ggplot(aes(x=date, y=weight)) +
+  geom_line(color='lightgray', size=1) +
+  geom_line(aes(x = date, y = averageWeight1), color='steelblue', size=1) +
+  #  geom_line(aes(x = date, y = averageHeartRate2), color='red', size=1) +
+  scale_y_continuous(limits=c(72,80)) +
+  scale_x_date(limits=c(as.Date("2015-04-22"),NA), date_breaks = "1 month", date_labels = "%Y-%m") +
+  labs(x = "Date", y = "Sleep efficiency with 7-day and 30-day rolling average") +
+  theme(axis.text.x = element_text(angle = 90))
+ggsave(filename = "Plots/Weight.png", p, width = 40, height = 6, dpi = 300, units = "in", device=png())
+
+#max(weight$weight, na.rm = TRUE)
 
 
 # Histogram of weight
