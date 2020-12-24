@@ -17,6 +17,9 @@ library("ggplot2")
 library("dplyr")
 library("tidyr")
 library("roll")
+library("tidyverse")
+library("lubridate")
+
 
 # Source required files
 source("Fitbit-API-Key.R")
@@ -60,7 +63,7 @@ rm(steps_2018)
 
 # Convert variables to correct type and arrange by date
 steps <- steps %>%
-  mutate(date = as.POSIXct(strptime(steps$dateTime, "%Y-%m-%d"))) %>%
+  #mutate(date = as.POSIXct(strptime(steps$dateTime, "%Y-%m-%d"))) %>%
   mutate(steps = as.numeric(value)) %>%
   select(-dateTime, -value) %>%
   arrange(date)
@@ -79,6 +82,47 @@ steps %>%
   filter(date >= "2016-01-01" & date <= "2020-12-31") %>%
   ggplot(aes(steps)) +
   geom_histogram(binwidth = 1000)
+
+# Summarise steps by week 
+steps_by_week <- steps %>% group_by(year= year(date), week = week(date)) %>% summarise(steps = sum(steps)) %>% as.data.frame()
+
+p <- steps_by_week %>% filter(year == 2020) %>%
+  ggplot(aes(x=week, y=steps)) +
+  geom_line(color='steelblue', size=1) +
+  coord_polar() +
+  scale_y_continuous(limits=c(0, NA)) +
+  scale_x_continuous(limits=c(1, 52))
+  #scale_x_date(date_breaks = "1 month", date_labels = "%Y-%m") +
+  #labs(x = "Date", y = "Resting heart rate with 7-day and 30-day rolling average") +
+  #theme(axis.text.x = element_text(angle = 90))
+#ggsave(filename = "Plots/Resting_HR.png", p, width = 40, height = 6, dpi = 300, units = "in", device=png())
+
+
+# Plot with rolling averages 
+
+rolling_average_window1 <- 7
+rolling_average_window2 <- 30
+ymax <- 25000
+
+p <- steps %>% mutate(date = as.Date(date), year = year(date), day = yday(date)) %>% # Strip POSIXct formatting to be interpretable by ggplot
+  filter(!is.na(steps)) %>% 
+  mutate(averageSteps1 = roll_mean(steps, rolling_average_window1)) %>%
+  mutate(averageSteps1 = lead(averageSteps1, round(rolling_average_window1/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  mutate(averageSteps2 = roll_mean(steps, rolling_average_window2)) %>%
+  mutate(averageSteps2 = lead(averageSteps2, round(rolling_average_window2/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  filter(year(date) == 2020) %>%
+  ggplot(aes(x=date, y=steps)) +
+  #geom_line(color='lightgray', size=1) +
+  geom_line(aes(x = date, y = averageSteps1), color='steelblue', size=1) +
+  geom_line(aes(x = date, y = averageSteps2), color='red', size=1) +
+  coord_polar() +
+  scale_y_continuous(limits=c(0,ymax), breaks=c(10000, 14286, 25000)) +
+  scale_x_date(limits=c(as.Date("2020-01-01"), as.Date("2020-12-31")), date_breaks = "1 month", date_labels = "%Y-%m") +
+  labs(x = "Date", y = "Dail ysteps with 7-day and 30-day rolling average")
+
+temp <- steps %>% mutate(date = as.Date(date))
+month(temp$date)
+
 
 
 
@@ -341,7 +385,6 @@ weight <- weight %>%
   mutate(weight = as.numeric(value)) %>%
   select(-dateTime, -value) %>%
   arrange(date)
-
 
 # Set weight to NA for dates prior to Aria use start 2017-02-09
 weight$weight[weight$date < "2017-02-09"] <- NA
