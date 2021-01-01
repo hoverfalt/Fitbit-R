@@ -34,7 +34,7 @@ token <- fitbitr::oauth_token()
 
 
 ##########################################
-################ ACTIVITY ################
+################## STEPS #################
 ##########################################
 
 # Fitbit API: Time series options are 1d, 7d, 30d, 1w, 1m, 3m, 6m, 1y
@@ -43,58 +43,67 @@ token <- fitbitr::oauth_token()
 
 
 # Set test date
-date <- "2020-12-20"
-
-# Get daily activity summary
-activity_summary <- get_activity_summary(token, date)
-activity_summary$activities
+date <- "2021-01-01"
 
 # Get daily step data for entire item data period and remove duplicates
-steps_2020 <- get_activity_time_series(token, "steps", date=date, period="1y")
+steps_2021<- get_activity_time_series(token, "steps", date=date, period="1y")
+steps_2020 <- get_activity_time_series(token, "steps", date="2020-12-31", period="1y")
 steps_2019 <- get_activity_time_series(token, "steps", date="2019-12-31", period="1y")
 steps_2018 <- get_activity_time_series(token, "steps", date="2018-12-31", period="1y")
-steps <- rbind(steps_2020, rbind(steps_2018, steps_2019))
+steps_2017 <- get_activity_time_series(token, "steps", date="2017-12-31", period="1y")
+steps_2016 <- get_activity_time_series(token, "steps", date="2016-12-31", period="1y")
+steps_2015 <- get_activity_time_series(token, "steps", date="2015-12-31", period="1y")
+steps <- rbind(steps_2020, steps_2019, steps_2018, steps_2017, steps_2016, steps_2015)
 steps <- steps[!duplicated(steps$dateTime),]
 
 # Remove temporary variables
-rm(steps_2020)
-rm(steps_2019)
-rm(steps_2018)
+rm(steps_2021, steps_2020, steps_2019, steps_2018, steps_2017, steps_2016, steps_2015)
 
 # Convert variables to correct type and arrange by date
 steps <- steps %>%
   #mutate(date = as.POSIXct(strptime(steps$dateTime, "%Y-%m-%d"))) %>%
-  mutate(steps = as.numeric(value)) %>%
+  mutate(date = as.Date(dateTime), steps = as.numeric(value)) %>%
   select(-dateTime, -value) %>%
   arrange(date)
 
-# Save steps data.frame to file for easier retrieval
-save(steps,file="Data/steps-2020-12-03.Rda")
+# Save steps data.frame to file for easier retrieval (2020-12-31 latest)
+save(steps,file="Data/steps.Rda")
 
 # Load data from file
-load("Data/steps-2020-12-03.Rda")
-
-# Plot steps
-ggplot2::ggplot(steps, aes(x=date, y=steps)) + geom_col()
+load("Data/steps.Rda")
 
 # Histogram of steps
 steps %>%
-  filter(date >= "2016-01-01" & date <= "2020-12-31") %>%
+  filter(date >= "2019-01-01" & date <= "2020-12-31") %>%
   ggplot(aes(steps)) +
   geom_histogram(binwidth = 1000)
 
 # Summarise steps by week 
-steps_by_week <- steps %>% group_by(year= year(date), week = week(date)) %>% summarise(steps = sum(steps)) %>% as.data.frame()
+steps_by_week <- steps %>%
+  group_by(week = cut(date, "week")) %>%
+  summarise(steps = sum(steps)) %>%
+  mutate(week = as.Date(week)) %>%
+  mutate(year = year(week), week_nr = week(week)) %>%
+  mutate(week_norm = ymd(paste(2020, month(week), day(week)))) %>%
+  as.data.frame()
 
-p <- steps_by_week %>% filter(year == 2020) %>%
-  ggplot(aes(x=week, y=steps)) +
-  geom_line(color='steelblue', size=1) +
+tail(steps_by_week)
+
+ymax <- 180000
+
+p <- steps_by_week %>%
+  ggplot(aes(x=week_norm, y=steps)) +
+  geom_line(data = steps_by_week[steps_by_week$year == 2016,], color='lightgray', size=1) +
+  geom_line(data = steps_by_week[steps_by_week$year == 2017,], color='darkgray', size=1) +
+  geom_line(data = steps_by_week[steps_by_week$year == 2018,], color='steelblue2', size=1) +
+  geom_line(data = steps_by_week[steps_by_week$year == 2019,], color='steelblue', size=1) +
+  geom_line(data = steps_by_week[steps_by_week$year == 2020,], color='red', size=1) +
+  geom_line(data = steps_by_week[steps_by_week$year == 2021,], color='green', size=1) +
   coord_polar() +
-  scale_y_continuous(limits=c(0, NA)) +
-  scale_x_continuous(limits=c(1, 52))
-  #scale_x_date(date_breaks = "1 month", date_labels = "%Y-%m") +
-  #labs(x = "Date", y = "Resting heart rate with 7-day and 30-day rolling average") +
-  #theme(axis.text.x = element_text(angle = 90))
+  scale_y_continuous(limits=c(0,ymax), breaks=c(70000, 100000, ymax)) +
+  scale_x_date(limits=c(as.Date("2020-01-01"), as.Date("2020-12-31")), date_breaks = "1 month", date_labels = "%b") +
+  labs(title = "Weekly steps") +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank())
 #ggsave(filename = "Plots/Resting_HR.png", p, width = 40, height = 6, dpi = 300, units = "in", device=png())
 
 
@@ -116,9 +125,10 @@ p <- steps %>% mutate(date = as.Date(date), year = year(date), day = yday(date))
   geom_line(aes(x = date, y = averageSteps1), color='steelblue', size=1) +
   geom_line(aes(x = date, y = averageSteps2), color='red', size=1) +
   coord_polar() +
-  scale_y_continuous(limits=c(0,ymax), breaks=c(10000, 14286, 25000)) +
-  scale_x_date(limits=c(as.Date("2020-01-01"), as.Date("2020-12-31")), date_breaks = "1 month", date_labels = "%Y-%m") +
-  labs(x = "Date", y = "Dail ysteps with 7-day and 30-day rolling average")
+  scale_y_continuous(limits=c(0,ymax), breaks=c(10000, 14286, ymax)) +
+  scale_x_date(limits=c(as.Date("2020-01-01"), as.Date("2020-12-31")), date_breaks = "1 month", date_labels = "%b") +
+  labs(title = "Daily steps with 7-day and 30-day rolling average") +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank())
 
 temp <- steps %>% mutate(date = as.Date(date))
 month(temp$date)
