@@ -72,11 +72,31 @@ save(steps,file="Data/steps.Rda")
 # Load data from file
 load("Data/steps.Rda")
 
+
+
+# Add rolling averages
+
+rolling_average_window1 <- 7
+rolling_average_window2 <- 30
+
+steps <- steps %>% mutate(date = as.Date(date), year = year(date), day = yday(date)) %>% # Strip POSIXct formatting to be interpretable by ggplot
+  filter(!is.na(steps)) %>% 
+  mutate(averageSteps1 = roll_mean(steps, rolling_average_window1)) %>%
+  mutate(averageSteps1 = lead(averageSteps1, round(rolling_average_window1/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
+  mutate(averageSteps2 = roll_mean(steps, rolling_average_window2)) %>%
+  mutate(averageSteps2 = lead(averageSteps2, round(rolling_average_window2/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample 
+  mutate(date_norm = ymd(paste(2020, month(date), day(date)))) %>%
+  as.data.frame()
+
+
+
 # Histogram of steps
 steps %>%
   filter(date >= "2019-01-01" & date <= "2020-12-31") %>%
   ggplot(aes(steps)) +
   geom_histogram(binwidth = 1000)
+
+
 
 # Summarise steps by week 
 steps_by_week <- steps %>%
@@ -93,8 +113,8 @@ ymax <- 180000
 
 p <- steps_by_week %>%
   ggplot(aes(x=week_norm, y=steps)) +
-  geom_line(data = steps_by_week[steps_by_week$year == 2016,], color='lightgray', size=1) +
-  geom_line(data = steps_by_week[steps_by_week$year == 2017,], color='darkgray', size=1) +
+#  geom_line(data = steps_by_week[steps_by_week$year == 2016,], color='lightgray', size=1) +
+  geom_line(data = steps_by_week[steps_by_week$year == 2017,], color='lightgray', size=1) +
   geom_line(data = steps_by_week[steps_by_week$year == 2018,], color='steelblue2', size=1) +
   geom_line(data = steps_by_week[steps_by_week$year == 2019,], color='steelblue', size=1) +
   geom_line(data = steps_by_week[steps_by_week$year == 2020,], color='red', size=1) +
@@ -107,10 +127,32 @@ p <- steps_by_week %>%
 #ggsave(filename = "Plots/Resting_HR.png", p, width = 40, height = 6, dpi = 300, units = "in", device=png())
 
 
+
+
 # Plot with rolling averages 
 
-rolling_average_window1 <- 7
-rolling_average_window2 <- 30
+#max(steps$averageSteps2, na.rm = TRUE)
+ymax <- 22500
+
+p <- steps %>%
+  ggplot(aes(x=date_norm, y=steps)) +
+  geom_line(data = steps[steps$year == 2017,], aes(x = date_norm, y = averageSteps2), color='lightgray', size=1) +
+  geom_line(data = steps[steps$year == 2018,], aes(x = date_norm, y = averageSteps2), color='steelblue2', size=1) +
+  geom_line(data = steps[steps$year == 2019,], aes(x = date_norm, y = averageSteps2), color='steelblue', size=1) +
+  geom_line(data = steps[steps$year == 2020,], aes(x = date_norm, y = averageSteps2), color='red', size=1) +
+  coord_polar() +
+  scale_y_continuous(limits=c(0,ymax), breaks=c(10000, 14286, ymax)) +
+  scale_x_date(limits=c(as.Date("2020-01-01"), as.Date("2020-12-31")), date_breaks = "1 month", date_labels = "%b") +
+  labs(title = "Daily steps 30-day rolling average of daily steps (shifted to center of sample)") +
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank())
+
+dev.off()
+
+
+# Plot with rolling averages, points 
+
+
+
 ymax <- 25000
 
 p <- steps %>% mutate(date = as.Date(date), year = year(date), day = yday(date)) %>% # Strip POSIXct formatting to be interpretable by ggplot
@@ -119,19 +161,17 @@ p <- steps %>% mutate(date = as.Date(date), year = year(date), day = yday(date))
   mutate(averageSteps1 = lead(averageSteps1, round(rolling_average_window1/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
   mutate(averageSteps2 = roll_mean(steps, rolling_average_window2)) %>%
   mutate(averageSteps2 = lead(averageSteps2, round(rolling_average_window2/2), digits = 0)) %>% # Shift rolling avg to midpoint of sample
-  filter(year(date) == 2020) %>%
+  #filter(year(date) == 2020) %>%
   ggplot(aes(x=date, y=steps)) +
   #geom_line(color='lightgray', size=1) +
-  geom_line(aes(x = date, y = averageSteps1), color='steelblue', size=1) +
-  geom_line(aes(x = date, y = averageSteps2), color='red', size=1) +
+  #geom_point(aes(x = date, y = averageSteps1), color='steelblue', size=1) +
+  geom_point(aes(x = date, y = averageSteps2), color='red', size=1) +
   coord_polar() +
   scale_y_continuous(limits=c(0,ymax), breaks=c(10000, 14286, ymax)) +
   scale_x_date(limits=c(as.Date("2020-01-01"), as.Date("2020-12-31")), date_breaks = "1 month", date_labels = "%b") +
   labs(title = "Daily steps with 7-day and 30-day rolling average") +
   theme(axis.title.x=element_blank(), axis.title.y=element_blank())
 
-temp <- steps %>% mutate(date = as.Date(date))
-month(temp$date)
 
 
 
