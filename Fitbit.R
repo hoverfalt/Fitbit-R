@@ -208,7 +208,7 @@ str(get_lifetime_stats(token))
 
 
 # Set test date
-date <- "2020-12-20"
+date <- "2021-03-17"
 
 # Get heart rate time series
 heart_rate <- get_heart_rate_time_series(token, date=date, period="7d")
@@ -236,16 +236,18 @@ ggplot2::ggplot(heart_rate, aes(x=dateTime, y=heart_rate)) + geom_line()
 ## Resting heart rate time plot #######################################################
 
 # Get daily resting heart rate data for entire data period and remove duplicates
-heart_rate_2020 <- get_heart_rate_time_series(token, date=date, period="1y")
+heart_rate_2021 <- get_heart_rate_time_series(token, date=date, period="1y")
+heart_rate_2020 <- get_heart_rate_time_series(token, date="2020-12-31", period="1y")
 heart_rate_2019 <- get_heart_rate_time_series(token, date="2019-12-31", period="1y")
 heart_rate_2018 <- get_heart_rate_time_series(token, date="2018-12-31", period="1y")
 heart_rate_2017 <- get_heart_rate_time_series(token, date="2017-12-31", period="1y")
 heart_rate_2016 <- get_heart_rate_time_series(token, date="2016-12-31", period="1y")
 heart_rate_2015 <- get_heart_rate_time_series(token, date="2015-12-31", period="1y")
 
-# Remove 2019 dates from 2020
-heart_rate_2020 <- heart_rate_2020 %>% filter(dateTime >= as.Date("2020-01-01"))
+# Remove 2020 dates from 2021
+heart_rate_2021 <- heart_rate_2021 %>% filter(dateTime >= as.Date("2021-01-01"))
 
+resting_HR_2021 <- heart_rate_2021 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2021$value$restingHeartRate)
 resting_HR_2020 <- heart_rate_2020 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2020$value$restingHeartRate)
 resting_HR_2019 <- heart_rate_2019 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2019$value$restingHeartRate)
 resting_HR_2018 <- heart_rate_2018 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2018$value$restingHeartRate)
@@ -253,9 +255,10 @@ resting_HR_2017 <- heart_rate_2017 %>% select(dateTime) %>% mutate(restingHeartR
 resting_HR_2016 <- heart_rate_2016 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2016$value$restingHeartRate)
 resting_HR_2015 <- heart_rate_2015 %>% select(dateTime) %>% mutate(restingHeartRate = heart_rate_2015$value$restingHeartRate)
 
-resting_HR <- rbind(resting_HR_2020, resting_HR_2019, resting_HR_2018, resting_HR_2017, resting_HR_2016, resting_HR_2015)
+resting_HR <- rbind(resting_HR_2021, resting_HR_2020, resting_HR_2019, resting_HR_2018, resting_HR_2017, resting_HR_2016, resting_HR_2015)
 
 # Remove temporary variables
+rm(resting_HR_2021)
 rm(resting_HR_2020)
 rm(resting_HR_2019)
 rm(resting_HR_2018)
@@ -268,8 +271,8 @@ resting_HR <- resting_HR %>% mutate(date = as.Date(dateTime)) %>% select(date, r
 # Only include dates on and after 2015-04-23 for which there is HR data
 resting_HR <- resting_HR %>% filter(date > "2015-04-22")
 
-# Save hearrate data frame to file for easier retrieval
-save(resting_HR,file="Data/resting_HR-2020-12-10.Rda")
+# Save hearrate data frame to file for easier retrieval (2021-03-17)
+save(resting_HR,file="Data/resting_HR.Rda")
 
 # Load data from file
 load("Data/resting_HR-2020-12-10.Rda")
@@ -302,8 +305,7 @@ p <- resting_HR %>%
   ggplot(aes(restingHeartRate)) +
   geom_histogram(binwidth = 1)
 
-
-
+dev.off()
 
 
 
@@ -319,7 +321,7 @@ p <- resting_HR %>%
 x <- get_sleep_logs(token, date)
 
 # Set test date
-date <- "2020-12-20"
+date <- "2021-03-17"
 
 #Get Sleep Time Series
 #get_sleep_time_series(token, "timeInBed", date, period="7d")
@@ -327,19 +329,21 @@ date <- "2020-12-20"
 
 
 # Get daily sleep efficiency data for entire data period and remove duplicates
-sleep_efficiency_2020 <- get_sleep_time_series(token, "efficiency", date, period="1y")
+sleep_efficiency_2021 <- get_sleep_time_series(token, "efficiency", date, period="1y")
+sleep_efficiency_2020 <- get_sleep_time_series(token, "efficiency", date="2020-12-31", period="1y")
 sleep_efficiency_2019 <- get_sleep_time_series(token, "efficiency", date="2019-12-31", period="1y")
 sleep_efficiency_2018 <- get_sleep_time_series(token, "efficiency", date="2018-12-31", period="1y")
 sleep_efficiency_2017 <- get_sleep_time_series(token, "efficiency", date="2017-12-31", period="1y")
 sleep_efficiency_2016 <- get_sleep_time_series(token, "efficiency", date="2016-12-31", period="1y")
 sleep_efficiency_2015 <- get_sleep_time_series(token, "efficiency", date="2015-12-31", period="1y")
 
-# Remove 2019 dates from 2020
-sleep_efficiency_2020 <- sleep_efficiency_2020 %>% filter(dateTime >= as.Date("2020-01-01"))
+# Remove 2020 dates from 2021
+sleep_efficiency_2021 <- sleep_efficiency_2021 %>% filter(dateTime >= as.Date("2021-01-01"))
 
-sleep_efficiency <- rbind(sleep_efficiency_2020, sleep_efficiency_2019, sleep_efficiency_2018, sleep_efficiency_2017, sleep_efficiency_2016, sleep_efficiency_2015)
+sleep_efficiency <- rbind(sleep_efficiency_2021, sleep_efficiency_2020, sleep_efficiency_2019, sleep_efficiency_2018, sleep_efficiency_2017, sleep_efficiency_2016, sleep_efficiency_2015)
 
 # Remove temporary variables
+rm(sleep_efficiency_2021)
 rm(sleep_efficiency_2020)
 rm(sleep_efficiency_2019)
 rm(sleep_efficiency_2018)
@@ -362,7 +366,7 @@ sleep_efficiency <- sleep_efficiency %>% filter(date > "2015-04-22")
 # Set efficiency score to NA for dates prior to algorithm change around 2017-06-01
 sleep_efficiency$efficiency[sleep_efficiency$date < "2017-06-01"] <- NA
 
-# Save hearrate data frame to file for easier retrieval
+# Save hearrate data frame to file for easier retrieval (2021-03-17)
 save(sleep_efficiency,file="Data/sleep_efficiency.Rda")
 # Load data from file
 load("Data/sleep_efficiency.Rda")
@@ -410,19 +414,21 @@ get_weight_logs(token, date)
 
 get_body_time_series(token, "weight", date = date, period="1y")
 
-weight_2020 <- get_body_time_series(token, "weight", date=date, period="1y")
+weight_2021 <- get_body_time_series(token, "weight", date=date, period="1y")
+weight_2020 <- get_body_time_series(token, "weight", date="2020-12-31", period="1y")
 weight_2019 <- get_body_time_series(token, "weight", date="2019-12-31", period="1y")
 weight_2018 <- get_body_time_series(token, "weight", date="2018-12-31", period="1y")
 weight_2017 <- get_body_time_series(token, "weight", date="2017-12-31", period="1y")
 weight_2016 <- get_body_time_series(token, "weight", date="2016-12-31", period="1y")
 
-# Remove 2019 dates from 2020
-weight_2020 <- weight_2020 %>% filter(dateTime >= as.Date("2020-01-01"))
+# Remove 2020 dates from 2021
+weight_2021 <- weight_2021 %>% filter(dateTime >= as.Date("2021-01-01"))
 #weight <- weight[!duplicated(weight$dateTime),] 
 
-weight <- rbind(weight_2020, weight_2019, weight_2018, weight_2017, weight_2016)
+weight <- rbind(weight_2021, weight_2020, weight_2019, weight_2018, weight_2017, weight_2016)
 
 # Remove temporary variables
+rm(weight_2021)
 rm(weight_2020)
 rm(weight_2019)
 rm(weight_2018)
@@ -440,7 +446,7 @@ weight <- weight %>%
 weight$weight[weight$date < "2017-02-09"] <- NA
 
 
-# Save weight data.frame to file for easier retrieval
+# Save weight data.frame to file for easier retrieval (2021-03-17)
 save(weight,file="Data/weight.Rda")
 
 # Load data from file
@@ -461,7 +467,7 @@ p <- weight %>% filter(!is.na(weight)) %>%
   geom_line(color='lightgray', size=1) +
   geom_line(aes(x = date, y = averageWeight1), color='steelblue', size=1) +
   #  geom_line(aes(x = date, y = averageHeartRate2), color='red', size=1) +
-  scale_y_continuous(limits=c(72,80)) +
+  scale_y_continuous(limits=c(70,80), breaks=c(70, 72, 74, 76, 78, 80)) +
   scale_x_date(limits=c(as.Date("2015-04-22"),NA), date_breaks = "1 month", date_labels = "%Y-%m") +
   labs(x = "Date", y = "Sleep efficiency with 7-day and 30-day rolling average") +
   theme(axis.text.x = element_text(angle = 90))
